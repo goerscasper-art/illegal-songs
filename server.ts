@@ -1,57 +1,43 @@
-import express from "express";
-import path from "path";
+import { Hono } from "hono";
 import ytSearch from "yt-search";
-import https from "https";
-import { createServer as createViteServer } from "vite";
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = new Hono();
 
-  app.use(express.json());
-
-  // Search API
-  app.get("/api/search", async (req, res) => {
-    try {
-      const q = req.query.q as string;
-      if (!q) {
-        return res.status(400).json({ error: "Query is required" });
-      }
-      
-      const r = await ytSearch(q);
-      const videos = r.videos.slice(0, 20).map(v => ({
-        id: v.videoId,
-        title: v.title,
-        thumbnail: v.thumbnail,
-        duration: v.timestamp,
-        author: v.author.name
-      }));
-      
-      res.json({ results: videos });
-    } catch (error) {
-      console.error("Search error:", error);
-      res.status(500).json({ error: "Failed to search" });
+app.get("/api/search", async (c) => {
+  try {
+    const q = c.req.query("q");
+    if (!q) {
+      return c.json({ error: "Query is required" }, 400);
     }
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    
+    const r = await ytSearch(q);
+    const videos = r.videos.slice(0, 20).map(v => ({
+      id: v.videoId,
+      title: v.title,
+      thumbnail: v.thumbnail,
+      duration: v.timestamp,
+      author: v.author.name
+    }));
+    
+    return c.json({ results: videos });
+  } catch (error) {
+    console.error("Search error:", error);
+    return c.json({ error: "Failed to search" }, 500);
   }
+});
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+export default {
+  async fetch(request: Request, env: any, ctx: any): Promise<Response> {
+    const url = new URL(request.url);
 
-startServer();
+    if (url.pathname.startsWith("/api")) {
+      return app.fetch(request, env, ctx);
+    }
+
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
+    return new Response("Not Found", { status: 404 });
+  }
+};
