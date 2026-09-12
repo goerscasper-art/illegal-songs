@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "illegal-music",
-  "main": "dist/server.cjs",
+  "name": "songs",
+  "main": "server.ts", 
   "compatibility_date": "2026-09-12",
   "compatibility_flags": [
     "nodejs_compat"
